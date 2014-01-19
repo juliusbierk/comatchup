@@ -12,6 +12,7 @@
         <script src="js/vendor/jquery-2.0.3.min.js"></script>
         <script src="js/vendor/jquery.touchSwipe.min.js"></script>
         <script src="js/vendor/d3.v3.min.js"></script>
+        <script src="phonegap.js"></script>
 
         <style>
         .wrapper {
@@ -197,7 +198,7 @@
                         this_in_goal = true;
                         break;
                     }
-               }
+                }
             }
 
             $("#moves").text(moves.toString());
@@ -252,13 +253,9 @@
                                 }
                             }
                         }
-                        
                     }
-
-
                     break;
                 }
-
             }
             // Move
             dots[i][0] += dx
