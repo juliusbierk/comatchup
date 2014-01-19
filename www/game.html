@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title></title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width">
+
+        <link rel="stylesheet" href="css/bootstrap.css">
+        <link rel="stylesheet" href="css/bootstrap-theme.min.css">
+        <link rel="stylesheet" href="css/main.css">
+        <script src="js/vendor/jquery-2.0.3.min.js"></script>
+        <script src="js/vendor/jquery.touchSwipe.min.js"></script>
+        <script src="js/vendor/d3.v3.min.js"></script>
+
+        <style>
+        .wrapper {
+           display: table;
+           padding: 0;
+           width: 100%;
+           height: 100%;
+           position: absolute;
+        }
+        
+        #main {
+           background-color: #eee;
+        }
+
+        circle {
+            stroke:#444;
+        }
+        </style>
+    </head>
+
+    <body>
+        <nav class="navbar navbar-default" role="navigation">
+          <div class="navbar-header">
+            <a class="navbar-brand" href="#">CoMatchup</a>
+          </div>
+          <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+            <ul style="float:right" class="nav navbar-nav">
+              <li><a href="index.html">Menu</a></li>
+              <li></li>
+              <li><a id="restart" href="#"><span class="glyphicon glyphicon-refresh"></span></a></li>   
+            </ul>
+
+          </div>
+        </nav>
+
+       
+
+        <div class="wrapper">
+          <svg id="main" width="500" height="500"></svg>
+        </div>
+
+        <div id="below">
+            <div style="padding:5px;text-align:center">
+                 <div style="margin:20px;text-align:center">
+                <h3><span class="label label-info">Level <span id="level">0</span></span></h3>
+                </div>
+                <h4><span id="movelabel" class="label label-primary">Moves: <span id="moves">0</span></h4>
+            </div>
+        </div>
+        
+
+    <script>
+    function getUrlVars()
+    {
+        var vars = [], hash;
+        var hashes = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');
+        for(var i = 0; i < hashes.length; i++)
+        {
+            hash = hashes[i].split('=');
+            vars.push(hash[0]);
+            vars[hash[0]] = hash[1];
+        }
+        if (!('level' in vars)) {
+            vars["level"] = "s1l1";
+        }
+        return vars;
+    }
+
+     $(document).ready(function() {
+        // GET LEVEL DATA
+        var L = $(window).width();
+        args = getUrlVars();
+        var levelpath = "levels/"+args["level"]+".txt"
+        $("#level").text(args["level"].toUpperCase());
+        var level;
+        $.ajax({
+            async:false,
+            url:levelpath,
+            success: function(data) {
+                level = JSON.parse(data);
+            }
+        });
+        var N = level.N;
+        var size = L/N;
+        var R = size*0.45;
+        var moves = 0;
+
+        // CANVAS
+        $("#main").width(L);
+        $("#main").height(L);
+        $("#below").attr("style", "margin-top:"+(30+L).toString()+"px;")
+        //$("#maximum").text(level.stars1.toString());
+        //$("#optimal").text(level.stars3.toString());
+        var canvas = d3.select("#main");
+        for (var i=0; i<N+1; i++){
+            canvas.append("line")
+                .attr("x1", i*size)
+                .attr("x2", i*size)
+                .attr("y1", 0)
+                .attr("y2", L)
+                .attr("stroke-width", 1)
+                .attr("stroke", "gray");
+            canvas.append("line")
+                .attr("x1", 0)
+                .attr("x2", L)
+                .attr("y1", i*size)
+                .attr("y2", i*size)
+                .attr("stroke-width", 1)
+                .attr("stroke", "gray");
+        }
+
+        // SET THE STAGE
+        var blocks_elem = new Array();
+        var blocks = level.blocks;
+        for (var i=0; i<blocks.length; i++) {
+            blocks_elem[i] = canvas.append("rect")
+                .attr("x", size*blocks[i][0]+1)
+                .attr("y", size*blocks[i][1]+1)
+                .attr("width", size-4)
+                .attr("height", size-4)
+                .attr("fill", "#777");
+        } 
+
+        var goals_elem = new Array();
+        var goals = level.goals;
+        for (var i=0; i<goals.length; i++) {
+            goals_elem[i] = canvas.append("rect")
+                .attr("x", size*goals[i][0]+2)
+                .attr("y", size*goals[i][1]+2)
+                .attr("width", size-4)
+                .attr("height", size-4)
+                .attr("fill", "#86c2f4");
+        }
+
+        var dots_elem = new Array();
+        var dots = level.dots;
+        for (var i=0; i<dots.length; i++) {
+            dots_elem[i] = canvas.append("circle")
+                .attr("cx", 0.5*size)
+                .attr("cy", 0.5*size)
+                .attr("r", R)
+                .attr("transform", "translate("+(size*dots[i][0]).toString()+", "+(size*dots[i][1]).toString()+")")
+              .attr("fill", "#66a2d4");  
+        }
+
+        // STATISTICS
+        function won_level() {
+            season_regexp = new RegExp("s(\\d+)l");
+            season = parseInt(season_regexp.exec(args["level"])[1]);
+            level_regexp = new RegExp("l(\\d+)");
+            level = parseInt(level_regexp.exec(args["level"])[1]);
+            if (level < 25) {
+                level += 1;
+            } else {
+                season += 1;
+                level = 1;
+            }
+
+            function populateDB(tx) {
+                tx.executeSql('CREATE TABLE IF NOT EXISTS PROGRESS (level, moves)');
+                tx.executeSql('INSERT INTO PROGRESS (level, moves) VALUES ("'+args["level"]+'", '+moves.toString()+')');
+            }
+            function errorCB(tx, err) {
+                alert("Error processing SQL: "+err);
+            }
+            function successCB() {
+                ;
+            }
+
+            var db = window.openDatabase("comatchup", "1.0", "coMatchup", 200000);
+            db.transaction(populateDB, errorCB, successCB);
+
+            window.location="game.html?level=s"+season.toString()+"l"+level.toString();
+        }
+        function update_after_move() {
+            moves += 1;
+            var in_goal = 0;
+            for (var i=0; i<dots.length; i++) {
+               this_in_goal = false;
+               for (var j=0; j<goals.length; j++) {
+                    if (dots[i][0]==goals[j][0] && dots[i][1]==goals[j][1]) {
+                        in_goal += 1;
+                        this_in_goal = true;
+                        break;
+                    }
+               }
+            }
+
+            $("#moves").text(moves.toString());
+            if (in_goal == goals.length){
+                setTimeout(won_level,130); 
+            }
+        }
+
+        // MOVEMENT
+        function move_one(i, dx, dy) {
+            //// Check if new position is(/will be) free
+
+            // Stay inside grid
+            if (dots[i][0]+dx == -1 || dots[i][0]+dx == N ||
+                dots[i][1]+dy == -1 || dots[i][1]+dy == N ) {
+                return 0;
+            }
+            // Don't walk into block
+            for (var j=0; j<blocks.length; j++) {
+                if (blocks[j][0]==dots[i][0]+dx && blocks[j][1]==dots[i][1]+dy) {
+                    return 0;
+                }
+            }
+            // And not into another dot:
+            for (var j=0; j<i; j++) {
+                if (dots[j][0]==dots[i][0]+dx && dots[j][1]==dots[i][1]+dy) {
+                    return 0;
+                }
+            }
+            for (var j=i+1; j<dots.length; j++) {
+                if (dots[j][0]==dots[i][0]+dx && dots[j][1]==dots[i][1]+dy) {
+
+                    more_dots = true;
+                    while(more_dots) {
+                        for (var k=0; k<blocks.length; k++) {
+                            if ((blocks[k][0]==dots[j][0]+dx && blocks[k][1]==dots[j][1]+dy)
+                                 || (dots[j][0]+dx == -1 || dots[j][0]+dx == N ||
+                                    dots[j][1]+dy == -1 || dots[j][1]+dy == N )) {
+                                return 0;
+                            }
+                        }
+
+                        more_dots = false;
+                        for (var k=0; k<dots.length; k++) {
+                            if (dots[k][0]==dots[j][0]+dx && dots[k][1]==dots[j][1]+dy) {
+                                if (k<i) {
+                                    return 0;
+                                } else {
+                                    j = k;
+                                    more_dots = true;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                    }
+
+
+                    break;
+                }
+
+            }
+            // Move
+            dots[i][0] += dx
+            dots[i][1] += dy;
+            new_x = size*dots[i][0];
+            new_y = size*dots[i][1];
+            dots_elem[i].attr("transform", "translate("+new_x.toString()+", "+new_y.toString()+")"); //.ease("elastic");
+            return 1;
+        }
+
+        function move(dir) {
+            var moves_done = 0;
+            switch(dir) {
+            case "right":
+                for (var i=0; i<dots.length; i++) {
+                    moves_done += move_one(i,1,0);
+                }
+                break
+            case "left":
+                for (var i=0; i<dots.length; i++) {
+                    moves_done += move_one(i,-1,0);
+                }
+                break;
+            case "up":
+                for (var i=0; i<dots.length; i++) {
+                    moves_done += move_one(i,0,-1);
+                }
+                break
+            case "down":
+                for (var i=0; i<dots.length; i++) {
+                    moves_done += move_one(i,0,1);
+                }
+                break
+            }
+            if (moves_done>0) {
+                update_after_move();
+            }
+        }
+
+         $('#restart').click(function() {
+            location.reload();
+        });
+
+         $("#main").swipe({
+              swipe:function(event, direction, distance, duration, fingerCount) {
+                move(direction);
+              }
+
+        });
+    });
+    </script>
+
+
+    </body>
+</html>

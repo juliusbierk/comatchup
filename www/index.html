@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <title></title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width">
+
+        <link rel="stylesheet" href="css/bootstrap.css">
+        <link rel="stylesheet" href="css/bootstrap-theme.min.css">
+        <link rel="stylesheet" href="css/main.css">
+        <script src="js/vendor/jquery-2.0.3.min.js"></script>
+        <script src="js/vendor/jquery.touchSwipe.min.js"></script>
+        <script src="js/vendor/d3.v3.min.js"></script>
+        <script src="phonegap.js"></script>
+
+        <style>
+        .wrapper {
+           display: table;
+           padding: 0;
+           width: 100%;
+           height: 100%;
+           position: absolute;
+        }
+        
+        #main {
+           background-color: #eee;
+        }
+
+        circle {
+            stroke:#444;
+        }
+        </style>
+    </head>
+
+    <body>
+
+        <script>
+            $(document).ready(function() {
+                seasons = 5
+                levels = 25;
+                for (var s=1; s<=seasons; s++) {
+                    $("#menu").append("<h2>Season "+s.toString()+"</h2>");
+                    for (var l=1; l<=levels; l++) {
+                        sl = 's'+s.toString()+'l'+l.toString();
+                        $("#menu").append('<img src="img/solved.png" style="display:none;margin-right:5px;" moves="-1" id="'+sl+'"></img><a href="game.html?level='+sl+'">Level '+l.toString()+'</a><br>')
+                        $("#"+sl).click(function() {
+                            alert('Solved in '+$(this).attr("moves")+' moves.');
+                        })
+                    }
+                }
+            });
+
+            document.addEventListener("deviceready", onDeviceReady, false);
+
+            function onDeviceReady() {
+                var db = window.openDatabase("comatchup", "1.0", "coMatchup", 200000);
+                db.transaction(populateDB, errorCB, successCB);
+                db.transaction(queryDB, errorCB);
+            }
+            function populateDB(tx) {
+                tx.executeSql('CREATE TABLE IF NOT EXISTS PROGRESS (level, moves)');
+            }
+            function errorCB(tx, err) {
+                alert("Error processing SQL: "+err);
+            }
+            function successCB() {
+                ;
+            }
+            
+            function querySuccess(tx, results) {
+                for (var i=0; i<results.rows.length; i++) {
+                    $("#"+results.rows.item(i).level).attr("moves", results.rows.item(i).moves.toString());
+                    $("#"+results.rows.item(i).level).show();
+                }
+            }
+            function queryDB(tx) {
+                tx.executeSql("SELECT level, moves FROM PROGRESS", [], querySuccess, errorCB);
+            }
+
+        </script>
+
+
+          <nav class="navbar navbar-default" role="navigation">
+          <div class="navbar-header">
+            <a class="navbar-brand" href="#">CoMatchup</a>
+          </div>
+        </nav>
+
+        <div id="menu" class="jumbotron"></div>
+    </body>
+</html>
